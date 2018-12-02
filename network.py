@@ -146,10 +146,10 @@ def main():
 	net = NeuralNetwork(dimensions) # map(int,input.strip('[]').split(','))
 	data_dir = os.getcwd()
 	fashion_data = os.path.join(data_dir,'fashion_mnist')
-	no_training = 2000
-	train_data, train_label, test_data, test_label = mnist(noTrSamples=no_training,noTsSamples=1000,\
+	no_training = 60000
+	train_data, train_label, test_data, test_label = mnist(noTrSamples=no_training,noTsSamples=10000,\
             digit_range=[0,1,2,3,4,5,6,7,8,9],\
-            noTrPerClass=no_training/10, noTsPerClass=100)
+            noTrPerClass=no_training/10, noTsPerClass=1000)
 	no_of_images = train_data.shape[1]
 	mu, sigma = 0.1, 0.2
 	noise = np.random.normal(mu, sigma, [784, no_training])
