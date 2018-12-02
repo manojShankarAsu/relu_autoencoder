@@ -32,13 +32,36 @@ def activation_derivative(x,layer):
 	elif layer == 2:
 		return sigmoid_prime(x)
 
+def get_no_of_samples_perclass(features_100,y_train,number):
+	counts = [0,0,0,0,0,0,0,0,0,0]
+	count = 0
+	ret  = []
+	labels = []
+	i = 0
+	j = 0
+	while count < number*10:
+		curr_class = int(y_train[i])
+		if counts[curr_class-1] < number:
+			counts[curr_class-1] +=1
+			count += 1
+			ret.append( features_100[i])
+			j +=1 
+			labels.append(curr_class)
+		i += 1
+	return ret,labels
+
 
 def square(z):
 	return z ** 2
 
+def one_hot(j):
+    e = np.zeros((10, 1))
+    e[j] = 1.0
+    return e
+
 class NeuralNetwork(object):
 
-	def __init__(self,sizes):
+	def __init__(self,sizes,activation_functions=[]):
 		self.num_layers = len(sizes)
 		self.sizes = sizes
 		self.biases = [np.random.randn(y,1) for y in sizes[1:]] 
@@ -47,6 +70,11 @@ class NeuralNetwork(object):
 		# ignore the last layer. from layer 1 to n-1 , 
 		# weight matrix dimension = no of next neurons (rows) * no of current layer neurons (columns)
 		# size[:-1] ignores last layer. sizes[1:] starts from second layer.
+		self.activation_functions = activation_functions
+
+	def get_hidden_layer_activation(self,a):
+		activation = activation_method(np.dot(self.weights[0],a)+self.biases[0] , 1)
+		return activation
 
 	def feedforward(self, a):
 		layer = 1
@@ -141,57 +169,66 @@ class NeuralNetwork(object):
 
 
 def main():
-	dimension_string = sys.argv[1]
-	dimensions = map(int,dimension_string.strip('[]').split(','))
-	net = NeuralNetwork(dimensions) # map(int,input.strip('[]').split(','))
+
+	# Stacked Auto encoder 1
+	stacked1 = NeuralNetwork([784,500,784]) # map(int,input.strip('[]').split(','))
 	data_dir = os.getcwd()
 	fashion_data = os.path.join(data_dir,'fashion_mnist')
-	no_training = 2000
-	train_data, train_label, test_data, test_label = mnist(noTrSamples=no_training,noTsSamples=1000,\
+	no_training = 100
+	train_data, train_label, test_data, test_label = mnist(noTrSamples=no_training,noTsSamples=100,\
             digit_range=[0,1,2,3,4,5,6,7,8,9],\
-            noTrPerClass=no_training/10, noTsPerClass=100)
+            noTrPerClass=no_training/10, noTsPerClass=10)
 	no_of_images = train_data.shape[1]
-	mu, sigma = 0.1, 0.2
-	noise = np.random.normal(mu, sigma, [784, no_training])
-	noised_train_data=train_data+noise
+	train_label_backup = train_label
 	
-	train_images = [  np.reshape(noised_train_data[:,i] , (784,1)) for i in xrange(no_of_images)]
+	
+	train_images = [  np.reshape(train_data[:,i] , (784,1)) for i in xrange(no_of_images)]
 	train_label = [  np.reshape(train_data[:,i] , (784,1)) for i in xrange(no_of_images)]
 	new_train_data = zip(train_images,train_label)
-	net.SGD(new_train_data,30,10,0.05,test_data=None)
+	
+	# train_images[0] - (784,1)
+	# Train Stacked Auto encoder 1
+	stacked1.SGD(new_train_data,1,10,1.01,test_data=None)
 
-	n = 10
-	for i in xrange(n):
-		#print 'Predicted Data'
-		pred = net.feedforward(new_train_data[0][0])
-		pred=pred.reshape(28,28)
-		plt.matshow(pred)
-		plt.savefig(os.path.join(os.getcwd(),str(i)+'reconstructed'))
+	# Freeze and get the 500 features
+	features_500 = [stacked1.get_hidden_layer_activation(tr_data[0]) for tr_data in new_train_data]
+	print(len(features_500))
+	print(features_500[0].shape)
+	# list of  500,1 elements
 
-		#print 'Original data'
-		noiserow1=new_train_data[0][1]
-		noiserow1=noiserow1.reshape(28,28)
-		plt.matshow(noiserow1)
-		plt.savefig(os.path.join(os.getcwd(),str(i)+'original'))
+	# Train Stacked Auto encoder 2
+	stacked2 = NeuralNetwork([500,200,500])
+	train_data_2 = zip(features_500,features_500)
+	stacked2.SGD(train_data_2,1,10,0.9,test_data=None)
 
-		noiserow1=new_train_data[0][0]
-		noiserow1=noiserow1.reshape(28,28)
-		plt.matshow(noiserow1)
-		plt.savefig(os.path.join(os.getcwd(),str(i)+'noise'))
-	# weight_filename = 'weight_{0}'
-	# bias_filename = 'bias_{0}'
-	# i = 1
-	# for weight in net.weights:
-	# 	np.savetxt(weight_filename.format(i),weight)
-	# 	i+=1
-	# i = 1
-	# for bias in net.biases:
-	# 	np.savetxt(bias_filename.format(i),bias)
-	# 	i+=1
+	# Freeze and get the 200 features
+	features_200 = [stacked2.get_hidden_layer_activation(a[0]) for a in train_data_2]
+	# list of 200,1
 
+	# Train Stacked Auto encoder 3
+	stacked3 = NeuralNetwork([200,100,200])
+	train_data_3 = zip(features_200,features_200)
+	stacked3.SGD(train_data_3,1,10,0.9,test_data=None)
 
+	# Freeze and get the 100 features
+	features_100 = [stacked3.get_hidden_layer_activation(a[0]) for a in train_data_3]
+	#list of  100,1
 
+	# # classify
+	# Freeze the Stacked auto encoder layers and train the classifier
+	one_perclass,labels = get_no_of_samples_perclass(features_100,train_label_backup[0],1)
+	classifier1_onesample_perclass = NeuralNetwork([100,10],activation_functions=['softmax'])
+	label_one_hots = [ one_hot(l) for l in labels]
+	train_data_4 = zip(one_perclass,label_one_hots)
+	classifier1_onesample_perclass.SGD(train_data_4,1,10,0.9,test_data=None)
 
+	ten_perclass,labels = get_no_of_samples_perclass(features_100,train_label_backup[0],10)
+	classifier2_tensample_perclass = NeuralNetwork([100,10],activation_functions=['softmax'])
+	label_one_hots = [ one_hot(l) for l in labels]
+	train_data_4 = zip(one_perclass,label_one_hots)
+	classifier2_tensample_perclass.SGD(train_data_4,1,10,0.9,test_data=None)
+
+	
 
 
 if __name__ == '__main__':
