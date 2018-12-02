@@ -188,7 +188,7 @@ def main():
 	
 	# train_images[0] - (784,1)
 	# Train Stacked Auto encoder 1
-	stacked1.SGD(new_train_data,1,10,1.01,test_data=None)
+	stacked1.SGD(new_train_data,500,10,0.3,test_data=None)
 
 	# Freeze and get the 500 features
 	features_500 = [stacked1.get_hidden_layer_activation(tr_data[0]) for tr_data in new_train_data]
@@ -199,7 +199,7 @@ def main():
 	# Train Stacked Auto encoder 2
 	stacked2 = NeuralNetwork([500,200,500])
 	train_data_2 = zip(features_500,features_500)
-	stacked2.SGD(train_data_2,1,10,0.9,test_data=None)
+	stacked2.SGD(train_data_2,500,10,0.3,test_data=None)
 
 	# Freeze and get the 200 features
 	features_200 = [stacked2.get_hidden_layer_activation(a[0]) for a in train_data_2]
@@ -208,7 +208,7 @@ def main():
 	# Train Stacked Auto encoder 3
 	stacked3 = NeuralNetwork([200,100,200])
 	train_data_3 = zip(features_200,features_200)
-	stacked3.SGD(train_data_3,1,10,0.9,test_data=None)
+	stacked3.SGD(train_data_3,500,10,0.3,test_data=None)
 
 	# Freeze and get the 100 features
 	features_100 = [stacked3.get_hidden_layer_activation(a[0]) for a in train_data_3]
@@ -220,13 +220,13 @@ def main():
 	classifier1_onesample_perclass = NeuralNetwork([100,10],activation_functions=['softmax'])
 	label_one_hots = [ one_hot(l) for l in labels]
 	train_data_4 = zip(one_perclass,label_one_hots)
-	classifier1_onesample_perclass.SGD(train_data_4,1,10,0.9,test_data=None)
+	classifier1_onesample_perclass.SGD(train_data_4,500,10,0.5,test_data=None)
 
 	ten_perclass,labels = get_no_of_samples_perclass(features_100,train_label_backup[0],10)
 	classifier2_tensample_perclass = NeuralNetwork([100,10],activation_functions=['softmax'])
 	label_one_hots = [ one_hot(l) for l in labels]
 	train_data_4 = zip(one_perclass,label_one_hots)
-	classifier2_tensample_perclass.SGD(train_data_4,1,10,0.9,test_data=None)
+	classifier2_tensample_perclass.SGD(train_data_4,500,10,0.5,test_data=None)
 
 	
 
